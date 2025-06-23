@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <title>TravelGo - Cab Booking</title>
+  <style>
+    body {
+      background-image: url('https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OHx8Y2FyfGVufDB8fDB8fHww');
+      background-size: cover;
+      background-attachment: fixed;
+    }
+     .card {
+      background: rgba(255,255,255,0.95);
+      border-radius: 16px;
+    }
+   
+    .cab-type {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #1976d2;
+    } 
+ 
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo left">
+      <div class="logo-icon"></div>
+      <div class="logo-text">TravelGo</div>
+    </div>
+    <div class="right">
+      <p onclick="window.location.href='/about'">About</p>
+      <p onclick="window.location.href='#bottom'">Contact-Us</p>
+      <div class="profile-dropdown">
+        <img src="https://www.w3schools.com/howto/img_avatar.png" alt="Avatar" class="avatar">
+        <div class="dropdown-content">
+          <p><strong>User:</strong> {{ session['username'] }}</p>
+          <p><strong>Email:</strong> 
+            {% set user = user %}
+            {{ user.email if user else 'Not found' }}
+          </p>
+          <a  style="color: #c9923a;" href="{{ url_for('logout') }}">Logout</a>
+        </div>
+      </div>
+    </div>
+</header>
+<!--  --------------------------------------------------------------------------------------------------------------->
+<div class="container-fluid mt-4">
+  <div class="row">
+    <div class="col-md-8">
+      <div class="card shadow p-4 mb-4">
+        <h4 class="mb-3">Search Cabs</h4>
+        <form id="cabSearchForm">
+          <div class="row g-3">
+            <!-- From -->
+            <div class="col-md-4 position-relative">
+              <input type="text" name="from" id="fromCab" class="form-control" placeholder="Pickup Location" list="cityList" required>
+            </div>
+      
+            <!-- To -->
+            <div class="col-md-4 position-relative">
+              <input type="text" name="to" id="toCab" class="form-control" placeholder="Drop Location" list="cityList" required>
+              <button type="button" class="btn btn-sm btn-light position-absolute top-0 end-0 m-1" id="swapCabBtn" title="Swap">
+                🔁
+              </button>
+            </div>
+      
+            <!-- Date -->
+            <div class="col-md-2">
+              <input type="date" name="date" id="cabDate" class="form-control" required>
+            </div>
+      
+            <!-- Time -->
+            <div class="col-md-2">
+              <input type="time" name="time" class="form-control" required>
+            </div>
+          </div>
+      
+          <div class="row g-3 mt-2">
+            <!-- Cab Type -->
+            <div class="col-md-4">
+              <select name="cab_type" class="form-select" required>
+                <option value="">Cab Type</option>
+                <option value="Sedan">Sedan</option>
+                <option value="SUV">SUV</option>
+                <option value="Mini">Mini</option>
+                <option value="Luxury">Luxury</option>
+              </select>
+            </div>
+      
+            <!-- Passengers -->
+            <div class="col-md-4">
+              <input type="number" name="passengers" class="form-control" placeholder="Passengers" min="1" max="6" required>
+            </div>
+      
+            <!-- Search Button + Loader -->
+            <div class="col-md-4 d-flex align-items-center">
+              <button type="submit" class="btn active1 w-100 me-2">Search</button>
+              <div id="cabLoadingSpinner" class="spinner-border text-dark d-none" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+            </div>
+          </div>
+      
+          <!-- City list for datalist -->
+          <datalist id="cityList">
+            <option value="Hyderabad">
+            <option value="Bangalore">
+            <option value="Chennai">
+            <option value="Delhi">
+            <option value="Mumbai">
+            <!-- Add more cities as needed -->
+          </datalist>
+        </form>
+      </div>
+      
+      <div id="cabResults"></div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow p-3" style="max-height: 85vh; overflow-y: auto;">
+        <h5 class="text-center">My Bookings</h5>
+        <hr>
+        <div id="currentBookings">
+          <h6>Current Bookings</h6>
+          <div id="currentBookingsList"><p>Loading...</p></div>
+        </div>
+        <hr>
+        <div id="pastBookings">
+          <h6>Past Bookings</h6>
+          <div id="pastBookingsList"><p>Loading...</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Booking Modal -->
+<div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="bookingForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="bookingModalLabel">Book Your Cab</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="tripInfo" class="mb-3"></div>
+          <div class="mb-3">
+            <label for="cabGender" class="form-label">Passenger Gender:</label>
+            <select class="form-select" id="cabGender" required>
+              <option value="">Select</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Passengers:</label>
+            <div id="passengerCountDisplay">1</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Total Price:</label>
+            <div id="totalPrice">0</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success" id="submitBooking" disabled>Confirm Booking</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<!-- Footer section--------------------------------------------------- -->
+
+<footer class="footer" id="bottom">
+  <div class="footer-container logo">
+    <div class="footer-brand">
+      <div class="logo">
+        <div class="logo-icon"></div>
+        <div class="logo-text">TravelGo</div>
+      </div>
+      <div>TravelGo: Your Journey, One Click Away</div>
+    </div>
+    <div class="footer-links">
+      <h4>Quick Links</h4>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="#">Destinations</a></li>
+        <li><a href="#">Packages</a></li>
+        <li><a href="#bottom">Contact</a></li>
+      </ul>
+    </div>
+    <div class="footer-contact">
+      <h4>Contact Us</h4>
+      <p>Email: support@travelgo.com</p>
+      <p>Phone: +1 234 567 890</p>
+    </div>
+    <div class="footer-social">
+      <h4>Follow Us</h4>
+      <div class="social-icons">
+        <a href="#"><i class="fa-brands fa-facebook"></i></a>
+        <a href="#"><i class="fa-brands fa-instagram"></i></a>
+        <a href="#"><i class="fa-brands fa-x-twitter"></i></a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; 2025 TravelGo. All rights reserved.</p>
+  </div>
+</footer>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+ // Swap From/To
+ document.getElementById("swapCabBtn").addEventListener("click", () => {
+    const from = document.getElementById("fromCab");
+    const to = document.getElementById("toCab");
+    [from.value, to.value] = [to.value, from.value];
+  });
+
+  // Restrict past dates
+  document.addEventListener("DOMContentLoaded", () => {
+    const today = new Date().toISOString().split("T")[0];
+    document.getElementById("cabDate").setAttribute("min", today);
+  });
+
+  // // Handle AJAX submission
+  // document.getElementById("cabSearchForm").addEventListener("submit", function (e) {
+  //   e.preventDefault();
+  //   const spinner = document.getElementById("cabLoadingSpinner");
+  //   spinner.classList.remove("d-none");
+
+  //   const formData = new FormData(this);
+  //   fetch("/searchtrips", {
+  //     method: "POST",
+  //     body: formData,
+  //   })
+  //   .then(res => res.json())
+  //   .then(data => {
+  //     spinner.classList.add("d-none");
+  //     // TODO: Display search results dynamically
+  //     console.log("Cab Search Results:", data);
+  //   })
+  //   .catch(err => {
+  //     spinner.classList.add("d-none");
+  //     alert("Something went wrong.");
+  //     console.error(err);
+  //   });
+  // });
+
+
+
+
+// search
+  let cabPrice = 0;
+  let currentTrip = null;
+
+  document.getElementById('cabSearchForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    try {
+      const res = await fetch('/search-trips', {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+      const resultDiv = document.getElementById('cabResults');
+      resultDiv.innerHTML = '';
+      img=["https://plus.unsplash.com/premium_photo-1729936564623-147c3d6d0bd9?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Y2FifGVufDB8fDB8fHww","https://images.unsplash.com/photo-1612867754336-c45d074c4f8e?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OHx8Y2FifGVufDB8fDB8fHww","https://images.unsplash.com/photo-1613638377394-281765460baa?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTR8fGNhYnxlbnwwfHwwfHx8MA%3D%3D"]
+      if (data.length === 0) {
+        resultDiv.innerHTML = '<p class="text-danger">No cabs found for selected criteria.</p>';
+      } else {
+        let rowsHTML = '';
+        for (let i = 0; i < data.length; i++) {
+          const trip = data[i];
+          rowsHTML += `
+            <div class="card mb-3 shadow-sm">
+              <img src=${img[Math.floor(Math.random() * img.length)]}  style="height: 180px; object-fit: cover; border-radius: 0.5rem;" class="card-img-top" alt="Cab">
+              <div class="card-body">
+                <h5>${trip.cab_type || trip.bus_name || 'Cab'}</h5>
+                <p><strong>From:</strong> ${trip.from} | <strong>To:</strong> ${trip.to}</p>
+                <p><strong>Date:</strong> ${trip.date} <strong>Time:</strong> ${trip.time || trip.departure || '-'}</p>
+                <p><strong>Price:</strong> ₹${trip.price}</p>
+                <button class="btn active1 btn-sm book-now-btn" data-trip-index="${i}">Book Now</button>
+              </div>
+            </div>`;
+        }
+        resultDiv.innerHTML = rowsHTML;
+      }
+
+      // Attach event listeners to Book Now buttons
+      const bookNowButtons = document.querySelectorAll('.book-now-btn');
+      bookNowButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const index = button.getAttribute('data-trip-index');
+          if (index !== null && data[index]) {
+            openBookingModal(data[index]);
+          } else {
+            console.error('Invalid trip index:', index);
+          }
+        });
+      });
+    } catch (error) {
+      document.getElementById('cabResults').innerHTML = `<p class="text-danger">Error fetching cabs: ${error.message}</p>`;
+    }
+  });
+
+  function openBookingModal(trip) {
+    currentTrip = trip;
+    cabPrice = trip.price;
+    document.getElementById('tripInfo').innerHTML = `
+      <p><strong>${trip.cab_type || trip.bus_name || 'Cab'}</strong></p>
+      <p>From <strong>${trip.from}</strong> to <strong>${trip.to}</strong></p>
+      <p><strong>Date:</strong> ${trip.date} <strong>Time:</strong> ${trip.time || trip.departure || '-'}</p>
+      <p><strong>Price:</strong> ₹${trip.price}</p>
+      <p><strong>Passengers:</strong> ${trip.passengers || 1}</p>
+    `;
+    document.getElementById('passengerCountDisplay').textContent = trip.passengers || 1;
+    document.getElementById('totalPrice').textContent = (trip.passengers || 1) * cabPrice;
+    document.getElementById('submitBooking').disabled = false;
+    const bookingModal = new bootstrap.Modal(document.getElementById('bookingModal'));
+    bookingModal.show();
+  }
+
+  document.getElementById('bookingForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const gender = document.getElementById('cabGender').value;
+    if (!gender) {
+      alert('Please select your gender.');
+      return;
+    }
+    const trip = currentTrip;
+    try {
+      const response = await fetch('/submit-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bus_name: trip.cab_type || trip.bus_name || 'Cab',
+          from: trip.from,
+          to: trip.to,
+          date: trip.date,
+          departure: trip.time || trip.departure || '-',
+          arrival: trip.arrival || '-',
+          price: trip.price,
+          selected_seats: [trip.passengers || 1],
+          gender,
+          type: 'cab'
+        })
+      });
+      const result = await response.json();
+      if (response.ok) {
+        alert(result.message || 'Booking successful!');
+        const bookingModal = bootstrap.Modal.getInstance(document.getElementById('bookingModal'));
+        bookingModal.hide();
+        loadUserBookings();
+      } else {
+        alert(result.error || 'Booking failed.');
+      }
+    } catch (error) {
+      alert('Error submitting booking: ' + error.message);
+    }
+  });
+
+  // Fetch and display user bookings
+  async function loadUserBookings() {
+    try {
+      const res = await fetch('/user-bookings');
+      const data = await res.json();
+      const currentList = document.getElementById('currentBookingsList');
+      const pastList = document.getElementById('pastBookingsList');
+      currentList.innerHTML = '';
+      pastList.innerHTML = '';
+      if (data.error) {
+        currentList.innerHTML = `<p class="text-danger">${data.error}</p>`;
+        pastList.innerHTML = `<p class="text-danger">${data.error}</p>`;
+        return;
+      }
+      if (data.current.length === 0) {
+        currentList.innerHTML = '<p>No current bookings.</p>';
+      } else {
+        data.current.forEach(b => {
+          const div = document.createElement('div');
+          div.className = 'mb-2 p-2 border rounded';
+          let typeLabel = '';
+          let typeIcon = '';
+          if (b.type === 'hotel' || b.selected_seats_or_rooms) {
+            typeLabel = 'Hotel';
+            typeIcon = '<i class=\"fa fa-hotel me-1\" style=\"color:#1976d2\"></i>';
+          } else if (b.type === 'flight') {
+            typeLabel = 'Flight';
+            typeIcon = '<i class=\"fa fa-plane-departure me-1\" style=\"color:#009688\"></i>';
+          } else if (b.type === 'cab') {
+            typeLabel = 'Cab';
+            typeIcon = '<i class=\"fa fa-taxi me-1\" style=\"color:#ff9800\"></i>';
+          } else if (b.type === 'bus' || b.bus_name) {
+            typeLabel = 'Bus';
+            typeIcon = '<i class=\"fa fa-bus me-1\" style=\"color:#4caf50\"></i>';
+          } else if (b.type === 'train') {
+            typeLabel = 'Train';
+            typeIcon = '<i class=\"fa fa-train me-1\" style=\"color:#8e24aa\"></i>';
+          }
+          div.innerHTML = `
+            <div class=\"d-flex align-items-center mb-1\">
+              <span class=\"badge me-2\" style=\"background:#eee;color:#333;font-size:0.95rem;\">${typeIcon}${typeLabel}</span>
+              <div><strong>${b.name || b.bus_name || 'Trip'}</strong></div>
+            </div>
+            <span>Date: ${b.date}</span><br>
+            <span>Seats: ${(b.selected_seats_or_rooms || b.selected_seats || []).join(', ')}</span><br>
+            <span>Price: ₹${b.price}</span><br>
+            <button class=\"btn btn-danger btn-sm mt-1 cancel-booking-btn\" data-booking-id=\"${b._id}\">Cancel</button>
+          `;
+          currentList.appendChild(div);
+        });
+      }
+      if (data.previous.length === 0) {
+        pastList.innerHTML = '<p>No past bookings.</p>';
+      } else {
+        data.previous.forEach(b => {
+          const div = document.createElement('div');
+          div.className = 'mb-2 p-2 border rounded';
+          let typeLabel = '';
+          let typeIcon = '';
+          if (b.type === 'hotel' || b.selected_seats_or_rooms) {
+            typeLabel = 'Hotel';
+            typeIcon = '<i class=\"fa fa-hotel me-1\" style=\"color:#1976d2\"></i>';
+          } else if (b.type === 'flight') {
+            typeLabel = 'Flight';
+            typeIcon = '<i class=\"fa fa-plane-departure me-1\" style=\"color:#009688\"></i>';
+          } else if (b.type === 'cab') {
+            typeLabel = 'Cab';
+            typeIcon = '<i class=\"fa fa-taxi me-1\" style=\"color:#ff9800\"></i>';
+          } else if (b.type === 'bus' || b.bus_name) {
+            typeLabel = 'Bus';
+            typeIcon = '<i class=\"fa fa-bus me-1\" style=\"color:#4caf50\"></i>';
+          } else if (b.type === 'train') {
+            typeLabel = 'Train';
+            typeIcon = '<i class=\"fa fa-train me-1\" style=\"color:#8e24aa\"></i>';
+          }
+          div.innerHTML = `
+            <div class=\"d-flex align-items-center mb-1\">
+              <span class=\"badge me-2\" style=\"background:#eee;color:#333;font-size:0.95rem;\">${typeIcon}${typeLabel}</span>
+              <div><strong>${b.name || b.bus_name || 'Trip'}</strong></div>
+            </div>
+            <span>Date: ${b.date}</span><br>
+            <span>Seats: ${(b.selected_seats_or_rooms || b.selected_seats || []).join(', ')}</span><br>
+            <span>Price: ₹${b.price}</span><br>
+          `;
+          pastList.appendChild(div);
+        });
+      }
+      // Attach cancel event
+      document.querySelectorAll('.cancel-booking-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          if (!confirm('Are you sure you want to cancel this booking?')) return;
+          const bookingId = this.getAttribute('data-booking-id');
+          try {
+            const res = await fetch('/cancel-booking', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ booking_id: bookingId })
+            });
+            const result = await res.json();
+            if (res.ok) {
+              alert(result.message || 'Booking cancelled.');
+              loadUserBookings();
+            } else {
+              alert(result.error || 'Failed to cancel booking.');
+            }
+          } catch (err) {
+            alert('Error cancelling booking: ' + err.message);
+          }
+        });
+      });
+    } catch (err) {
+      document.getElementById('currentBookingsList').innerHTML = '<p class="text-danger">Error loading bookings.</p>';
+      document.getElementById('pastBookingsList').innerHTML = '<p class="text-danger">Error loading bookings.</p>';
+    }
+  }
+  // Load bookings on page load
+  loadUserBookings();
+</script>
+</body>
+</html>

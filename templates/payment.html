@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Payment</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <h2>Payment Details</h2>
+    
+    {% if booking_data.price %}
+        <div style="font-size:1.2em; margin-bottom:15px;">
+            <strong>Amount to Pay:</strong> ₹{{ booking_data.price }}
+        </div>
+    {% endif %}
+
+    
+    <form method="POST">
+        <label for="card_number">Card Number:</label>
+        <input type="text" id="card_number" name="card_number" required maxlength="16"><br>
+        <label for="expiry">Expiry Date:</label>
+        <input type="text" id="expiry" name="expiry" placeholder="MM/YY" required maxlength="5"><br>
+        <label for="cvv">CVV:</label>
+        <input type="password" id="cvv" name="cvv" required maxlength="4"><br>
+        <!-- Hidden booking data field -->
+        <input type="hidden" id="booking_data" name="booking_data" value="{{ booking_data|tojson}}">
+        <button type="submit">Pay & Confirm Booking</button>
+    </form>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-messages">
+      {% for category, message in messages %}
+        <div class="flash-message {{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+</body>
+</html> 

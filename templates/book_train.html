@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <title>TravelGo - Train Booking</title>
+  <style>
+    body {
+      background-image: url('https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=800&q=80');
+      background-size: cover;
+      background-attachment: fixed;
+    }
+    #berthSelection {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .seat {
+      width: 45px;
+      height: 45px;
+      border-radius: 8px;
+      border: 2px solid #999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      background-color: #e0f7fa;
+      transition: background-color 0.2s ease;
+    }
+    .seat:hover { opacity: 0.8; }
+    .seat.selected { background-color: #4caf50; color: white; }
+    .seat.booked { background-color: #ccc; color: #888; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+<header>
+    <div class="logo left">
+      <div class="logo-icon"></div>
+      <div class="logo-text">TravelGo</div>
+    </div>
+    <div class="right">
+      <p onclick="window.location.href='/about'">About</p>
+      <p onclick="window.location.href='#bottom'">Contact-Us</p>
+      <div class="profile-dropdown">
+        <img src="https://www.w3schools.com/howto/img_avatar.png" alt="Avatar" class="avatar">
+        <div class="dropdown-content">
+          <p><strong>User:</strong> {{ session['username'] }}</p>
+          <p><strong>Email:</strong> 
+            {% set user = user %}
+            {{ user.email if user else 'Not found' }}
+          </p>
+          <a  style="color: #c9923a;" href="{{ url_for('logout') }}">Logout</a>
+        </div>
+      </div>
+    </div>
+</header>
+<div class="container-fluid mt-4 mb-4">
+  <div class="row">
+    <div class="col-md-8" style="opacity: 91%;">
+      <div class="card shadow p-4">
+        <h4 class="mb-3">Search Train Trips</h4>
+        <form id="trainSearchForm">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <input type="text" name="from" class="form-control" placeholder="From" required>
+            </div>
+            <div class="col-md-4">
+              <input type="text" name="to" class="form-control" placeholder="To" required>
+            </div>
+            <div class="col-md-2">
+              <input type="date" name="date" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+              <select name="class" class="form-select" required>
+                <option value="">Class</option>
+                <option value="Sleeper">Sleeper</option>
+                <option value="3A">3A</option>
+                <option value="2A">2A</option>
+                <option value="1A">1A</option>
+              </select>
+            </div>
+          </div>
+          <div class="mt-3">
+            <button type="submit" class="btn active1">Search</button>
+          </div>
+        </form>
+      </div>
+      <div class="mt-4" id="trainResults"></div>
+    </div>
+    <div class="col-md-4" style="opacity: 91%;">
+      <div class="card shadow p-3" style="max-height: 85vh; overflow-y: auto;">
+        <h5 class="text-center">My Bookings</h5>
+        <hr>
+        <div id="currentBookings">
+          <h6>Current Bookings</h6>
+          <div id="currentBookingsList"><p>Loading...</p></div>
+        </div>
+        <hr>
+        <div id="pastBookings">
+          <h6>Past Bookings</h6>
+          <div id="pastBookingsList"><p>Loading...</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="bookingForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="bookingModalLabel">Book Your Train</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="tripInfo" class="mb-3"></div>
+          <div class="mb-3">
+            <label for="trainGender" class="form-label">Passenger Gender:</label>
+            <select class="form-select" id="trainGender" required>
+              <option value="">Select</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Select Berth(s):</label>
+            <div id="berthSelection"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Selected Berths:</label>
+            <div id="selectedBerthsDisplay">None</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Total Price:</label>
+            <div id="totalPrice">0</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success" id="submitBooking" disabled>Confirm Booking</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<footer class="footer" id="bottom">
+  <div class="footer-container logo">
+    <div class="footer-brand">
+      <div class="logo">
+        <div class="logo-icon"></div>
+        <div class="logo-text">TravelGo</div>
+      </div>
+      <div>TravelGo: Your Journey, One Click Away</div>
+    </div>
+    <div class="footer-links">
+      <h4>Quick Links</h4>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="#">Destinations</a></li>
+        <li><a href="#">Packages</a></li>
+        <li><a href="#bottom">Contact</a></li>
+      </ul>
+    </div>
+    <div class="footer-contact">
+      <h4>Contact Us</h4>
+      <p>Email: support@travelgo.com</p>
+      <p>Phone: +1 234 567 890</p>
+    </div>
+    <div class="footer-social">
+      <h4>Follow Us</h4>
+      <div class="social-icons">
+        <a href="#"><i class="fa-brands fa-facebook"></i></a>
+        <a href="#"><i class="fa-brands fa-instagram"></i></a>
+        <a href="#"><i class="fa-brands fa-x-twitter"></i></a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; 2025 TravelGo. All rights reserved.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  let berthPrice = 0;
+  let availableBerths = 0;
+  let currentTrip = null;
+
+  document.getElementById('trainSearchForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    try {
+      const res = await fetch('/search-trips', {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+      const resultDiv = document.getElementById('trainResults');
+      resultDiv.innerHTML = '';
+      if (data.length === 0) {
+        resultDiv.innerHTML = '<p class="text-danger">No trains found for selected criteria.</p>';
+      } else {
+        let rowsHTML = '';
+        for (let i = 0; i < data.length; i++) {
+          const trip = data[i];
+          rowsHTML += `
+            <div class=\"card mb-3 shadow-sm\">
+              <img src=\"https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=600&q=80\" class=\"card-img-top\" alt=\"Train travel\">
+              <div class=\"card-body\">
+                <h5>${trip.train_name || trip.bus_name || 'Train'}</h5>
+                <p><strong>From:</strong> ${trip.from} | <strong>To:</strong> ${trip.to}</p>
+                <p><strong>Date:</strong> ${trip.date} <strong>Class:</strong> ${trip.class || '-'}</p>
+                <p><strong>Price:</strong> \u20b9${trip.price}</p>
+                <button class=\"btn active1 btn-sm book-now-btn\" data-trip-index=\"${i}\">Book Now</button>
+              </div>
+            </div>`;
+        }
+        resultDiv.innerHTML = rowsHTML;
+      }
+      // Attach event listeners to Book Now buttons
+      const bookNowButtons = document.querySelectorAll('.book-now-btn');
+      bookNowButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const index = button.getAttribute('data-trip-index');
+          if (index !== null && data[index]) {
+            openBookingModal(data[index]);
+          } else {
+            console.error('Invalid trip index:', index);
+          }
+        });
+      });
+    } catch (error) {
+      document.getElementById('trainResults').innerHTML = `<p class="text-danger">Error fetching trains: ${error.message}</p>`;
+    }
+  });
+
+  function openBookingModal(trip) {
+    currentTrip = trip;
+    berthPrice = trip.price;
+    availableBerths = trip.available_berths || 6;
+    document.getElementById('tripInfo').innerHTML = `
+      <p><strong>${trip.train_name || trip.bus_name || 'Train'}</strong></p>
+      <p>From <strong>${trip.from}</strong> to <strong>${trip.to}</strong></p>
+      <p><strong>Date:</strong> ${trip.date} <strong>Class:</strong> ${trip.class || '-'}</p>
+      <p><strong>Price:</strong> ₹${trip.price}</p>
+      <p><strong>Available Berths:</strong> ${availableBerths}</p>
+    `;
+    // Render berths (A1-A6)
+    const berthContainer = document.getElementById('berthSelection');
+    berthContainer.innerHTML = '';
+    document.getElementById('selectedBerthsDisplay').textContent = 'None';
+    document.getElementById('totalPrice').textContent = '0';
+    document.getElementById('submitBooking').disabled = true;
+    const totalBerths = 6;
+    const bookedBerths = [2, 5]; // Example, ideally from backend
+    for (let i = 1; i <= totalBerths; i++) {
+      const berth = document.createElement('div');
+      berth.className = 'seat';
+      berth.innerText = 'A' + i;
+      if (bookedBerths.includes(i)) {
+        berth.classList.add('booked');
+        berth.style.backgroundColor = '#ccc';
+        berth.style.cursor = 'not-allowed';
+      } else {
+        berth.addEventListener('click', function () {
+          if (!berth.classList.contains('selected')) {
+            const selectedCount = document.querySelectorAll('.seat.selected').length;
+            if (selectedCount >= availableBerths) {
+              alert('You can\'t select more than available berths.');
+              return;
+            }
+          }
+          berth.classList.toggle('selected');
+          updateSummary();
+        });
+      }
+      berthContainer.appendChild(berth);
+    }
+    const bookingModal = new bootstrap.Modal(document.getElementById('bookingModal'));
+    bookingModal.show();
+  }
+
+  function updateSummary() {
+    const selected = document.querySelectorAll('.seat.selected');
+    const selectedBerths = Array.from(selected).map(s => s.innerText);
+    document.getElementById('selectedBerthsDisplay').textContent = selectedBerths.length > 0 ? selectedBerths.join(', ') : 'None';
+    document.getElementById('totalPrice').textContent = selectedBerths.length * berthPrice;
+    document.getElementById('submitBooking').disabled = selectedBerths.length === 0;
+  }
+
+  document.getElementById('bookingForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const selected = document.querySelectorAll('.seat.selected');
+    if (selected.length === 0) {
+      alert('Please select at least one berth to book.');
+      return;
+    }
+    const gender = document.getElementById('trainGender').value;
+    if (!gender) {
+      alert('Please select your gender.');
+      return;
+    }
+    const selectedBerths = Array.from(selected).map(s => s.innerText);
+    const trip = currentTrip;
+    try {
+      const response = await fetch('/submit-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bus_name: trip.train_name || trip.bus_name || 'Train',
+          from: trip.from,
+          to: trip.to,
+          date: trip.date,
+          departure: trip.departure || '-',
+          arrival: trip.arrival || '-',
+          price: trip.price,
+          selected_seats: selectedBerths,
+          gender,
+          type: 'train'
+        })
+      });
+      const result = await response.json();
+      if (response.ok) {
+        alert(result.message || 'Booking successful!');
+        const bookingModal = bootstrap.Modal.getInstance(document.getElementById('bookingModal'));
+        bookingModal.hide();
+        loadUserBookings();
+      } else {
+        alert(result.error || 'Booking failed.');
+      }
+    } catch (error) {
+      alert('Error submitting booking: ' + error.message);
+    }
+  });
+
+  // Fetch and display user bookings
+  async function loadUserBookings() {
+    try {
+      const res = await fetch('/user-bookings');
+      const data = await res.json();
+      const currentList = document.getElementById('currentBookingsList');
+      const pastList = document.getElementById('pastBookingsList');
+      currentList.innerHTML = '';
+      pastList.innerHTML = '';
+      if (data.error) {
+        currentList.innerHTML = `<p class=\"text-danger\">${data.error}</p>`;
+        pastList.innerHTML = `<p class=\"text-danger\">${data.error}</p>`;
+        return;
+      }
+      if (data.current.length === 0) {
+        currentList.innerHTML = '<p>No current bookings.</p>';
+      } else {
+        data.current.forEach(b => {
+          const div = document.createElement('div');
+          div.className = 'mb-2 p-2 border rounded';
+          let typeLabel = '';
+          let typeIcon = '';
+          if (b.type === 'hotel' || b.selected_seats_or_rooms) {
+            typeLabel = 'Hotel';
+            typeIcon = '<i class=\"fa fa-hotel me-1\" style=\"color:#1976d2\"></i>';
+          } else if (b.type === 'flight') {
+            typeLabel = 'Flight';
+            typeIcon = '<i class=\"fa fa-plane-departure me-1\" style=\"color:#009688\"></i>';
+          } else if (b.type === 'cab') {
+            typeLabel = 'Cab';
+            typeIcon = '<i class=\"fa fa-taxi me-1\" style=\"color:#ff9800\"></i>';
+          } else if (b.type === 'bus' || b.bus_name) {
+            typeLabel = 'Bus';
+            typeIcon = '<i class=\"fa fa-bus me-1\" style=\"color:#4caf50\"></i>';
+          } else if (b.type === 'train') {
+            typeLabel = 'Train';
+            typeIcon = '<i class=\"fa fa-train me-1\" style=\"color:#8e24aa\"></i>';
+          }
+          div.innerHTML = `
+            <div class=\"d-flex align-items-center mb-1\">
+              <span class=\"badge me-2\" style=\"background:#eee;color:#333;font-size:0.95rem;\">${typeIcon}${typeLabel}</span>
+              <div><strong>${b.name || b.bus_name || 'Trip'}</strong></div>
+            </div>
+            <span>Date: ${b.date}</span><br>
+            <span>Seats: ${(b.selected_seats_or_rooms || b.selected_seats || []).join(', ')}</span><br>
+            <span>Price: ₹${b.price}</span><br>
+            <button class=\"btn btn-danger btn-sm mt-1 cancel-booking-btn\" data-booking-id=\"${b._id}\">Cancel</button>
+          `;
+          currentList.appendChild(div);
+        });
+      }
+      if (data.previous.length === 0) {
+        pastList.innerHTML = '<p>No past bookings.</p>';
+      } else {
+        data.previous.forEach(b => {
+          const div = document.createElement('div');
+          div.className = 'mb-2 p-2 border rounded';
+          let typeLabel = '';
+          let typeIcon = '';
+          if (b.type === 'hotel' || b.selected_seats_or_rooms) {
+            typeLabel = 'Hotel';
+            typeIcon = '<i class=\"fa fa-hotel me-1\" style=\"color:#1976d2\"></i>';
+          } else if (b.type === 'flight') {
+            typeLabel = 'Flight';
+            typeIcon = '<i class=\"fa fa-plane-departure me-1\" style=\"color:#009688\"></i>';
+          } else if (b.type === 'cab') {
+            typeLabel = 'Cab';
+            typeIcon = '<i class=\"fa fa-taxi me-1\" style=\"color:#ff9800\"></i>';
+          } else if (b.type === 'bus' || b.bus_name) {
+            typeLabel = 'Bus';
+            typeIcon = '<i class=\"fa fa-bus me-1\" style=\"color:#4caf50\"></i>';
+          } else if (b.type === 'train') {
+            typeLabel = 'Train';
+            typeIcon = '<i class=\"fa fa-train me-1\" style=\"color:#8e24aa\"></i>';
+          }
+          div.innerHTML = `
+            <div class=\"d-flex align-items-center mb-1\">
+              <span class=\"badge me-2\" style=\"background:#eee;color:#333;font-size:0.95rem;\">${typeIcon}${typeLabel}</span>
+              <div><strong>${b.name || b.bus_name || 'Trip'}</strong></div>
+            </div>
+            <span>Date: ${b.date}</span><br>
+            <span>Seats: ${(b.selected_seats_or_rooms || b.selected_seats || []).join(', ')}</span><br>
+            <span>Price: ₹${b.price}</span><br>
+          `;
+          pastList.appendChild(div);
+        });
+      }
+      // Attach cancel event
+      document.querySelectorAll('.cancel-booking-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          if (!confirm('Are you sure you want to cancel this booking?')) return;
+          const bookingId = this.getAttribute('data-booking-id');
+          try {
+            const res = await fetch('/cancel-booking', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ booking_id: bookingId })
+            });
+            const result = await res.json();
+            if (res.ok) {
+              alert(result.message || 'Booking cancelled.');
+              loadUserBookings();
+            } else {
+              alert(result.error || 'Failed to cancel booking.');
+            }
+          } catch (err) {
+            alert('Error cancelling booking: ' + err.message);
+          }
+        });
+      });
+    } catch (err) {
+      document.getElementById('currentBookingsList').innerHTML = '<p class="text-danger">Error loading bookings.</p>';
+      document.getElementById('pastBookingsList').innerHTML = '<p class="text-danger">Error loading bookings.</p>';
+    }
+  }
+  // Load bookings on page load
+  loadUserBookings();
+</script>
+</body>
+</html>

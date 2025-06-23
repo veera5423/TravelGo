@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/static/styles.css">
+  <title>TravelGO-Register</title>
+  <script>
+    // Hide flash messages after 3 seconds (3000 ms)
+    setTimeout(function() {
+      var flashMessages = document.querySelectorAll('.flash-message');
+      flashMessages.forEach(function(msg) {
+        msg.style.transition = "opacity 0.5s";
+        msg.style.opacity = 0;
+        setTimeout(function() {
+          msg.style.display = "none";
+        }, 500); // Wait for fade-out transition
+      });
+    }, 3000);
+  </script>
+</head>
+<body>
+  <div class="registercontainer">
+    <div class="logincontainer">
+      <!-- TravelGo Logo -->
+      <div class="logo">
+        <div class="logo-icon"></div>
+        <div class="logo-text">TravelGo</div>
+      </div>
+      <div class="autologin">
+        <p>G Login With Google</p>
+      </div>
+      <span id="or">or</span>
+      <div class="registerform">
+    <form method="POST" action="/sign-up">
+      <h2>Create an Account</h2>
+      <label for="username">UserName</label>
+      <input type="text" name="username" placeholder="Enter Your UserName" required>
+      <label for="email">Email</label>
+      <input type="email" name="email" placeholder="Enter Your Email" required>
+      <label for="phone">Phone</label>
+      <input type="text" name="phone" placeholder="Enter Your Phone Number">
+      <label for="password">Password</label>
+      <input type="password" name="password" placeholder="Password" required>
+      
+      <button type="submit" class="active1">Register</button>
+    </form>
+    <button class="inactive1" onclick="window.location.href='/sign-in'">Login</button>
+  </div>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-messages">
+      {% for category, message in messages %}
+        <div class="flash-message {{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+ 
+
+</body>
+</html>

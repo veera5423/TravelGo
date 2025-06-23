@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <title>TravelGo - Hotel Booking</title>
+  <style>
+    body {
+      background-image: url('https://images.unsplash.com/photo-1535827841776-24afc1e255ac?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fGhvdGVsc3xlbnwwfHwwfHx8MA%3D%3D');
+      background-size: cover;
+      background-attachment: fixed;
+    }
+    #roomSelection {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .room {
+      width: 60px;
+      height: 40px;
+      border-radius: 8px;
+      border: 2px solid #999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      background-color: #e0f7fa;
+      transition: background-color 0.2s ease;
+    }
+    .room:hover { opacity: 0.8; }
+    .room.selected { background-color: #ff9800; color: white; }
+    .room.booked { background-color: #ccc; color: #888; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+<header>
+    <div class="logo left">
+      <div class="logo-icon"></div>
+      <div class="logo-text">TravelGo</div>
+    </div>
+    <div class="right">
+      <p onclick="window.location.href='/about'">About</p>
+      <p onclick="window.location.href='#bottom'">Contact-Us</p>
+      <div class="profile-dropdown">
+        <img src="https://www.w3schools.com/howto/img_avatar.png" alt="Avatar" class="avatar">
+        <div class="dropdown-content">
+          <p><strong>User:</strong> {{ session['username'] }}</p>
+          <p><strong>Email:</strong> 
+            {% set user = user %}
+            {{ user.email if user else 'Not found' }}
+          </p>
+          <a  style="color: #c9923a;" href="{{ url_for('logout') }}">Logout</a>
+        </div>
+      </div>
+    </div>
+</header>
+<div class="container-fluid mt-4 mb-4">
+  <div class="row">
+    <div class="col-md-8" style="opacity: 91%;">
+      <div class="card shadow p-4">
+        <h4 class="mb-3">Search Hotels</h4>
+        
+        <form id="hotelSearchForm">
+          <div class="row g-1 p-2">
+            <div class="col-md-3">
+              <input type="text" name="city" class="form-control" placeholder="City" required>
+            </div>
+            <div class="col-md-3">
+              <input type="date" name="checkin" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <input type="date" name="checkout" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+              <select name="room_type" class="form-select" required>
+                <option value="">Room Type</option>
+                <option value="Standard">Standard</option>
+                <option value="Deluxe">Deluxe</option>
+                <option value="Suite">Suite</option>
+              </select>
+            </div>
+            <div class="col-md-1">
+              <input type="number" name="guests" class="form-control" placeholder="Guests" min="1" max="6" required>
+            </div>
+          </div>
+          <div class="mt-3">
+            <button type="submit" class="btn active1">Search</button>
+          </div>
+        </form>
+      </div>
+      <div class="mt-4" id="hotelResults"></div>
+    </div>
+    <div class="col-md-4" style="opacity: 91%;">
+      <div class="card shadow p-3" style="max-height: 85vh; overflow-y: auto;">
+        <h5 class="text-center">My Bookings</h5>
+        <hr>
+        <div id="currentBookings">
+          <h6>Current Bookings</h6>
+          <div id="currentBookingsList"><p>Loading...</p></div>
+        </div>
+        <hr>
+        <div id="pastBookings">
+          <h6>Past Bookings</h6>
+          <div id="pastBookingsList"><p>Loading...</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="bookingForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="bookingModalLabel">Book Your Hotel</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="hotelInfo" class="mb-3"></div>
+          <div class="mb-3">
+            <label class="form-label">Select Room(s):</label>
+            <div id="roomSelection"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Selected Rooms:</label>
+            <div id="selectedRoomsDisplay">None</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Total Price:</label>
+            <div id="totalPrice">0</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success" id="submitBooking" disabled>Confirm Booking</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<footer class="footer" id="bottom">
+  <div class="footer-container logo">
+    <div class="footer-brand">
+      <div class="logo">
+        <div class="logo-icon"></div>
+        <div class="logo-text">TravelGo</div>
+      </div>
+      <div>TravelGo: Your Journey, One Click Away</div>
+    </div>
+    <div class="footer-links">
+      <h4>Quick Links</h4>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="#">Destination</a></li>
+        <li><a href="#">Packages</a></li>
+        <li><a href="#bottom">Contact</a></li>
+      </ul>
+    </div>
+    <div class="footer-contact">
+      <h4>Contact Us</h4>
+      <p>Email: support@travelgo.com</p>
+      <p>Phone: +1 234 567 890</p>
+    </div>
+    <div class="footer-social">
+      <h4>Follow Us</h4>
+      <div class="social-icons">
+        <a href="#"><i class="fa-brands fa-facebook"></i></a>
+        <a href="#"><i class="fa-brands fa-instagram"></i></a>
+        <a href="#"><i class="fa-brands fa-x-twitter"></i></a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>&copy; 2025 TravelGo. All rights reserved.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  let roomPrice = 0;
+  let availableRooms = 0;
+  let currentHotel = null;
+
+  document.getElementById('hotelSearchForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    try {
+      const res = await fetch('/get-hotels', {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+      const resultDiv = document.getElementById('hotelResults');
+      resultDiv.innerHTML = '';
+      if (data.length === 0) {
+        resultDiv.innerHTML = '<p class="text-danger">No hotels found for selected criteria.</p>';
+      } else {
+        let rowsHTML = '';
+        for (let i = 0; i < data.length; i++) {
+          const hotel = data[i];
+          rowsHTML += `
+            <div class=\"card mb-3 shadow-sm\">
+              <img src=${hotel.image_url} alt="Hotel room" style="max-height: 200px; object-fit: cover;">
+              <div class=\"card-body\">
+                <h5>${hotel.hotel_name || hotel.bus_name || 'Hotel'}</h5>
+                <p><strong>City:</strong> ${hotel.city}</p>
+                <p><strong>Check-in:</strong> ${hotel.available_from} <strong>Check-out:</strong> ${hotel.available_to}</p>
+                <p><strong>Room Type:</strong> ${hotel.room_type || '-'}</p>
+                <p><strong>Price:</strong> \u20b9${hotel.price_per_night}</p>
+                <button class=\"btn active1 btn-sm book-now-btn\" data-hotel-index=\"${i}\">Book Now</button>
+              </div>
+            </div>`;
+        }
+        resultDiv.innerHTML = rowsHTML;
+      }
+      // Attach event listeners to Book Now buttons
+      const bookNowButtons = document.querySelectorAll('.book-now-btn');
+      bookNowButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const index = button.getAttribute('data-hotel-index');
+          if (index !== null && data[index]) {
+            openBookingModal(data[index]);
+          } else {
+            console.error('Invalid hotel index:', index);
+          }
+        });
+      });
+    } catch (error) {
+      document.getElementById('hotelResults').innerHTML = `<p class="text-danger">Error fetching hotels: ${error.message}</p>`;
+    }
+  });
+
+  function openBookingModal(hotel) {
+    currentHotel = hotel;
+    roomPrice = hotel.price_per_night;
+    availableRooms = hotel.available_rooms || 4;
+    document.getElementById('hotelInfo').innerHTML = `
+      <p><strong>${hotel.hotel_name || hotel.bus_name || 'Hotel'}</strong></p>
+      <p>City: <strong>${hotel.city}</strong></p>
+      <p><strong>Check-in:</strong> ${hotel.available_from} <strong>Check-out:</strong> ${hotel.available_to}</p>
+      <p><strong>Room Type:</strong> ${hotel.room_type || '-'}</p>
+      <p><strong>Price:</strong> ₹${hotel.price_per_night}</p>
+      <p><strong>Available Rooms:</strong> ${availableRooms}</p>
+    `;
+    // Render rooms (R1-R4)
+    const roomContainer = document.getElementById('roomSelection');
+    roomContainer.innerHTML = '';
+    document.getElementById('selectedRoomsDisplay').textContent = 'None';
+    document.getElementById('totalPrice').textContent = '0';
+    document.getElementById('submitBooking').disabled = true;
+    const totalRooms = 4;
+    const bookedRooms = [2]; // Example, ideally from backend
+    for (let i = 1; i <= totalRooms; i++) {
+      const room = document.createElement('div');
+      room.className = 'room';
+      room.innerText = 'R' + i;
+      if (bookedRooms.includes(i)) {
+        room.classList.add('booked');
+        room.style.backgroundColor = '#ccc';
+        room.style.cursor = 'not-allowed';
+      } else {
+        room.addEventListener('click', function () {
+          if (!room.classList.contains('selected')) {
+            const selectedCount = document.querySelectorAll('.room.selected').length;
+            if (selectedCount >= availableRooms) {
+              alert('You can\'t select more than available rooms.');
+              return;
+            }
+          }
+          room.classList.toggle('selected');
+          updateSummary();
+        });
+      }
+      roomContainer.appendChild(room);
+    }
+    const bookingModal = new bootstrap.Modal(document.getElementById('bookingModal'));
+    bookingModal.show();
+  }
+
+  function updateSummary() {
+    const selected = document.querySelectorAll('.room.selected');
+    const selectedRooms = Array.from(selected).map(s => s.innerText);
+    document.getElementById('selectedRoomsDisplay').textContent = selectedRooms.length > 0 ? selectedRooms.join(', ') : 'None';
+    document.getElementById('totalPrice').textContent = selectedRooms.length * roomPrice;
+    document.getElementById('submitBooking').disabled = selectedRooms.length === 0;
+  }
+
+  document.getElementById('bookingForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const selected = document.querySelectorAll('.room.selected');
+    if (selected.length === 0) {
+      alert('Please select at least one room to book.');
+      return;
+    }
+    const selectedRooms = Array.from(selected).map(s => s.innerText);
+    const hotel = currentHotel;
+    try {
+      const response = await fetch('/submit-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: hotel.name || 'Hotel',
+          date:new Date(),
+          
+    
+          departure: hotel.available_to,
+          arrival: hotel.available_from,
+          price: hotel.price_per_night,
+          selected_seats_or_rooms: selectedRooms,
+          gender: 'N/A',
+          type: 'hotel'
+        })
+      });
+      const result = await response.json();
+      if (response.ok) {
+        alert(result.message || 'Booking successful!');
+        const bookingModal = bootstrap.Modal.getInstance(document.getElementById('bookingModal'));
+        bookingModal.hide();
+        loadUserBookings();
+      } else {
+        alert(result.error || 'Booking failed.');
+      }
+    } catch (error) {
+      alert('Error submitting booking: ' + error.message);
+    }
+  });
+
+  // Fetch and display user bookings
+  async function loadUserBookings() {
+    try {
+      const res = await fetch('/user-bookings');
+      const data = await res.json();
+     
+      
+      const currentList = document.getElementById('currentBookingsList');
+      const pastList = document.getElementById('pastBookingsList');
+      currentList.innerHTML = '';
+      pastList.innerHTML = '';
+      if (data.error) {
+        currentList.innerHTML = `<p class=\"text-danger\">${data.error}</p>`;
+        pastList.innerHTML = `<p class=\"text-danger\">${data.error}</p>`;
+        return;
+      }
+      if (data.current.length === 0) {
+        currentList.innerHTML = '<p>No current bookings.</p>';
+      } else {
+        data.current.forEach(b => {
+          const div = document.createElement('div');
+          div.className = 'mb-2 p-2 border rounded';
+          let typeLabel = '';
+          let typeIcon = '';
+          if (b.type === 'hotel' || b.selected_seats_or_rooms) {
+            typeLabel = 'Hotel';
+            typeIcon = '<i class="fa fa-hotel me-1" style="color:#1976d2"></i>';
+          } else if (b.type === 'flight') {
+            typeLabel = 'Flight';
+            typeIcon = '<i class="fa fa-plane-departure me-1" style="color:#009688"></i>';
+          } else if (b.type === 'cab') {
+            typeLabel = 'Cab';
+            typeIcon = '<i class="fa fa-taxi me-1" style="color:#ff9800"></i>';
+          } else if (b.type === 'bus' || b.bus_name) {
+            typeLabel = 'Bus';
+            typeIcon = '<i class="fa fa-bus me-1" style="color:#4caf50"></i>';
+          } else if (b.type === 'train') {
+            typeLabel = 'Train';
+            typeIcon = '<i class="fa fa-train me-1" style="color:#8e24aa"></i>';
+          }
+          div.innerHTML = `
+            <div class="d-flex align-items-center mb-1">
+              <span class="badge me-2" style="background:#eee;color:#333;font-size:0.95rem;">${typeIcon}${typeLabel}</span>
+              <div><strong>${b.name || b.bus_name || 'Trip'}</strong></div>
+            </div>
+            <span>Check-in: ${b.departure} | Check-out: ${b.arrival}</span><br>
+            <span>Rooms: ${(b.selected_seats_or_rooms || b.selected_seats || []).join(', ')}</span><br>
+            <span>Price: ₹${b.price}</span><br>
+            <button class="btn btn-danger btn-sm mt-1 cancel-booking-btn" data-booking-id="${b._id}">Cancel</button>
+          `;
+          currentList.appendChild(div);
+        });
+      }
+      if (data.previous.length === 0) {
+        pastList.innerHTML = '<p>No past bookings.</p>';
+      } else {
+        data.previous.forEach(b => {
+          const div = document.createElement('div');
+          div.className = 'mb-2 p-2 border rounded';
+          let typeLabel = '';
+          let typeIcon = '';
+          if (b.type === 'hotel' || b.selected_seats_or_rooms) {
+            typeLabel = 'Hotel';
+            typeIcon = '<i class="fa fa-hotel me-1" style="color:#1976d2"></i>';
+          } else if (b.type === 'flight') {
+            typeLabel = 'Flight';
+            typeIcon = '<i class="fa fa-plane-departure me-1" style="color:#009688"></i>';
+          } else if (b.type === 'cab') {
+            typeLabel = 'Cab';
+            typeIcon = '<i class="fa fa-taxi me-1" style="color:#ff9800"></i>';
+          } else if (b.type === 'bus' || b.bus_name) {
+            typeLabel = 'Bus';
+            typeIcon = '<i class="fa fa-bus me-1" style="color:#4caf50"></i>';
+          } else if (b.type === 'train') {
+            typeLabel = 'Train';
+            typeIcon = '<i class="fa fa-train me-1" style="color:#8e24aa"></i>';
+          }
+          div.innerHTML = `
+            <div class="d-flex align-items-center mb-1">
+              <span class="badge me-2" style="background:#eee;color:#333;font-size:0.95rem;">${typeIcon}${typeLabel}</span>
+              <div><strong>${b.name || b.bus_name || 'Trip'}</strong></div>
+            </div>
+            <span>Check-in: ${b.departure} | Check-out: ${b.arrival}</span><br>
+            <span>Rooms: ${(b.selected_seats_or_rooms || b.selected_seats || []).join(', ')}</span><br>
+            <span>Price: ₹${b.price}</span><br>
+          `;
+          pastList.appendChild(div);
+        });
+      }
+      // Attach cancel event
+      document.querySelectorAll('.cancel-booking-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          if (!confirm('Are you sure you want to cancel this booking?')) return;
+          const bookingId = this.getAttribute('data-booking-id');
+          try {
+            const res = await fetch('/cancel-booking', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ booking_id: bookingId })
+            });
+            const result = await res.json();
+            if (res.ok) {
+              alert(result.message || 'Booking cancelled.');
+              loadUserBookings();
+            } else {
+              alert(result.error || 'Failed to cancel booking.');
+            }
+          } catch (err) {
+            alert('Error cancelling booking: ' + err.message);
+          }
+        });
+      });
+    } catch (err) {
+      document.getElementById('currentBookingsList').innerHTML = '<p class="text-danger">Error loading bookings.</p>';
+      document.getElementById('pastBookingsList').innerHTML = '<p class="text-danger">Error loading bookings.</p>';
+    }
+  }
+  // Load bookings on page load
+  loadUserBookings();
+</script>
+</body>
+</html>
