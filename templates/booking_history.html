@@ -83,7 +83,8 @@
 <header>
     <div class="logo left">
       <div class="logo-icon"></div>
-      <div class="logo-text">TravelGo</div>
+      <div class="logo-text" onclick="window.location.href='/dashboard'">TravelGo</div>
+
     </div>
     <div class="right">
       <p onclick="window.location.href='/about'">About</p>
@@ -159,7 +160,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     // Placeholder image for bookings
-    const placeholderImg = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80';
+    const placeholderImg = '/static/images/travelgo.jpg';
 
     async function loadBookingHistory() {
       const currentList = document.getElementById('currentBookingsList');
@@ -226,19 +227,19 @@
         typeIcon = '<i class="fa fa-taxi me-1" style="color:#ff9800"></i>';
         borderColor = 'border-warning';
         showCancel = (type === 'current' && !isCancelled);
-      } else if (b.type === 'bus' || b.bus_name) {
-        img = b.image_url || placeholderImg;
-        title = b.bus_name || 'Bus';
-        typeLabel = 'Bus';
-        typeIcon = '<i class="fa fa-bus me-1" style="color:#4caf50"></i>';
-        borderColor = 'border-success';
-        showCancel = (type === 'current' && !isCancelled);
       } else if (b.type === 'train') {
         img = b.image_url || placeholderImg;
         title = b.name || 'Train';
         typeLabel = 'Train';
         typeIcon = '<i class="fa fa-train me-1" style="color:#8e24aa"></i>';
         borderColor = 'border-purple';
+        showCancel = (type === 'current' && !isCancelled);
+      } else if (b.type === 'bus' || b.bus_name) {
+        img = b.image_url || placeholderImg;
+        title = b.bus_name || 'Bus';
+        typeLabel = 'Bus';
+        typeIcon = '<i class="fa fa-bus me-1" style="color:#4caf50"></i>';
+        borderColor = 'border-success';
         showCancel = (type === 'current' && !isCancelled);
       }
       // Details

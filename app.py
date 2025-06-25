@@ -2,18 +2,23 @@ from flask import jsonify
 
 from datetime import datetime
 from flask import Flask,render_template, request, redirect, url_for, flash,session
-from pymongo import MongoClient, errors
+from pymongo import MongoClient, errors,ASCENDING
 from bson import ObjectId
 import json
+from dotenv import load_dotenv
+import os
  
 
-app=Flask(__name__)
-app.secret_key = 'veera123'  # Needed for flash messages
+load_dotenv()  # Load variables from .env
+
+app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY")
+mongo_uri = os.getenv("MONGO_URI")  # Needed for flash messages
 
 # Connect to MongoDB
 
 try:
-    client = MongoClient("mongodb+srv://228x1a05d0:Veera123@cluster0.zpubcor.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0", serverSelectionTimeoutMS=3000)  
+    client = MongoClient(mongo_uri, serverSelectionTimeoutMS=3000)  
     
     client.admin.command('ping')
     print("MongoDB connection successful!")
@@ -41,7 +46,10 @@ def dashboard():
         user = users_collection.find_one({'username': session['username']})
     return render_template('dashboard.html', reviews=reviews, user=user)
         
-        
+#Forgot password
+@app.route("/forgotpassword")    
+def forgotpassword():
+    return render_template("forgotpassword.html")    
         
 
 # todo chage validation 
@@ -150,7 +158,9 @@ def search_trips():
     from_location = request.form.get("from", "").strip()
     to_location = request.form.get("to", "").strip()
     date = request.form.get("date", "")
-    cab_type = request.form.get("cab_type", "").strip()
+    # cab_type = request.form.get("cab_type", "").strip()
+    class_type = request.form.get("classType", "").strip()
+    sort_by = request.form.get('sortBy').strip()
     time = request.form.get("time", "").strip()
     # passengers = request.form.get("passengers", "").strip()  # Optional
 
@@ -165,15 +175,87 @@ def search_trips():
         "to": {"$regex": f"^{re.escape(to_location)}$", "$options": "i"},
         "date": date
     }
-    if cab_type:
-        query["cab_type"] = {"$regex": f"^{re.escape(cab_type)}$", "$options": "i"}
+    if class_type:
+        query["class_type"] = {"$regex": f"^{re.escape(class_type)}$", "$options": "i"}
     if time:
         query["time"] = time
     # if passengers:
     #     query["passengers"] = int(passengers)
 
     trips = list(trips_collection.find(query, {"_id": 0}))
+
     return jsonify(trips)
+
+
+#search cabs
+@app.route('/search-cabs', methods=['POST'])
+def search_cabs():
+    from_location = request.form.get("from", "").strip()
+    to_location = request.form.get("to", "").strip()
+    date = request.form.get("date", "").strip()
+    time = request.form.get("time", "").strip()
+    passengers = request.form.get("passengers", "").strip()
+    
+
+    try:
+        search_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify([])
+
+    query = {
+        "type": "cab",
+        "from": {"$regex": f"^{re.escape(from_location)}$", "$options": "i"},
+        "to": {"$regex": f"^{re.escape(to_location)}$", "$options": "i"},
+        "date": date
+    }
+
+    if time:
+        query["time"] = time
+    if passengers:
+        try:
+            query["available_seats"] = {"$gte": int(passengers)}
+        except ValueError:
+            pass  # ignore invalid input
+
+    trips = list(trips_collection.find(query, {"_id": 0}))
+    for trip in trips:
+        trip["passengerscount"] = int(passengers) if passengers.isdigit() else 1
+    return jsonify(trips)
+
+
+
+
+#Search trains
+
+
+@app.route('/search-trains', methods=['POST'])
+def search_trains():
+    from_location = request.form.get("from", "").strip()
+    to_location = request.form.get("to", "").strip()
+    date = request.form.get("date", "").strip()
+    train_class = request.form.get("class", "").strip()
+
+    # Validate and format date
+    try:
+        datetime.strptime(date, "%Y-%m-%d")  # Validates format
+    except ValueError:
+        return jsonify([])  # Return empty if date is invalid
+
+    # Query construction
+    query = {
+        "from": {"$regex": f"^{re.escape(from_location)}$", "$options": "i"},
+        "to": {"$regex": f"^{re.escape(to_location)}$", "$options": "i"},
+        "date": date
+    }
+
+    if train_class:
+        query["class"] = {"$regex": f"^{re.escape(train_class)}$", "$options": "i"}
+
+    # Fetch results
+    trains = list(trips_collection.find(query, {"_id": 0}))
+
+    return jsonify(trains)
+
 
 # Search hotels
 @app.route("/get-hotels",methods=['POST'])
@@ -207,12 +289,43 @@ def gethotels():
     return jsonify(hotels)
   
   
+  #Search Flights
+
+
+@app.route('/search-flights', methods=['POST'])
+def search_flights():
+    from_location = request.form.get("from", "").strip()
+    to_location = request.form.get("to", "").strip()
+    date = request.form.get("date", "").strip()
+    flight_class = request.form.get("class", "").strip()
+
+    # Validate date
+    try:
+        search_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify([])
+
+    # Build query
+    query = {
+        "from": {"$regex": f"^{re.escape(from_location)}$", "$options": "i"},
+        "to": {"$regex": f"^{re.escape(to_location)}$", "$options": "i"},
+        "date": date
+    }
+
+    if flight_class:
+        query["class"] = {"$regex": f"^{re.escape(flight_class)}$", "$options": "i"}
+
+    # Fetch matching flights
+    flights = list(trips_collection.find(query, {"_id": 0}))
+
+    return jsonify(flights)
+
 
 # Paste the JSON array here
 
 
 
-# submitbooking
+# # submitbooking
 # @app.route('/submit-booking', methods=['POST'])
 # def submit_booking():
 #     if 'username' not in session:
@@ -338,6 +451,30 @@ def cancel_booking():
     db.bookings.delete_one({'_id': ObjectId(booking_id)})
     return jsonify({'message': 'Booking cancelled successfully'})
 
+@app.route('/prepayment', methods=['POST'])
+def prepayment():
+    if 'username' not in session:
+        return jsonify({'error': 'You must be logged in to book.'}), 401
+
+    if not request.is_json:
+        return jsonify({'error': 'Expected JSON data.'}), 400
+
+    booking = request.get_json()
+    # Validate necessary fields
+    # required = ['name', 'arrival', 'departure', 'price', 'selected_seats_or_rooms']
+    # if not all(k in booking for k in required):
+    #     return jsonify({'error': 'Missing booking data.'}), 400
+    if not booking:
+        return jsonify({'error': 'Invalid booking data'}), 400
+    print(booking)
+
+    # Store booking in session temporarily
+    # print(booking)
+    # print("json booking:",booking)
+
+    session['pending_booking'] = json.dumps(booking)
+    return jsonify({'redirect': url_for('payment')})
+
 
 
 @app.route('/payment', methods=['GET', 'POST'])
@@ -347,60 +484,115 @@ def payment():
         return redirect(url_for('signin'))
 
     if request.method == 'GET':
-        # Booking data should be passed as query param or session
-        booking_data = request.args.get('booking_data')
+        # Get pending booking from session
+        booking_data = session.get('pending_booking')
         if not booking_data:
-            booking_data = session.get('pending_booking')
-        else:
-            session['pending_booking'] = booking_data
+            flash('No booking found to process.', 'error')
+            return redirect(url_for('dashboard'))
 
-        # If booking_data is a string, parse it to dict
-        booking_dict = {}
-        if booking_data:
-            try:
-                booking_dict = json.loads(booking_data)
-            except Exception:
-                booking_dict = {}
-        else:
-            booking_dict = {}
-        return render_template('payment.html', booking_data=booking_dict)
+        try:
+            booking = json.loads(booking_data)
+        except:
+            flash('Invalid booking data.', 'error')
+            return redirect(url_for('dashboard'))
 
-    # POST: process payment and booking
+        return render_template('payment.html', booking_data=booking)
+
+    # POST: Process payment form
     card_number = request.form.get('card_number')
     expiry = request.form.get('expiry')
     cvv = request.form.get('cvv')
-    booking_data = request.form.get('booking_data')
-    if not (card_number and expiry and cvv and booking_data):
-        flash('Missing payment or booking information.', 'error')
+
+    if not (card_number and expiry and cvv):
+        flash('Please fill in all payment fields.', 'error')
         return redirect(url_for('payment'))
 
-    # Here you would integrate with a payment gateway. We'll mock success.
-    # try:
-    #     booking = booking_data if isinstance(booking_data, dict) else json.loads(booking_data)
-    # except Exception:
-    #     flash('Invalid booking data.', 'error')
-    #     return redirect(url_for('dashboard'))
-
-    # Add username and booking time
-    # booking = booking_data if isinstance
     try:
-        print("Raw booking_data from form:", booking_data)
+        booking_data = session.get('pending_booking')
         booking = json.loads(booking_data)
-    except Exception:
-        flash('Invalid booking data.', 'error')
-        return redirect(url_for('payment'))
+    except:
+        flash('Booking data error.', 'error')
+        return redirect(url_for('dashboard'))
 
-    booking=booking_data
+    # Add payment + user info
     booking['username'] = session['username']
     booking['booking_time'] = datetime.utcnow()
+    booking['payment'] = {
+        'card_number': f'**** **** **** {card_number[-4:]}',
+        'expiry': expiry
+    }
+
     try:
         db.bookings.insert_one(booking)
         session.pop('pending_booking', None)
         flash('Payment successful! Booking confirmed.', 'success')
         return redirect(url_for('bookingHistory'))
     except Exception as e:
-        flash('Booking failed: ' + str(e), 'error')
+        flash('Error saving booking: ' + str(e), 'error')
         return redirect(url_for('dashboard'))
+
+
+
+# @app.route('/payment', methods=['GET', 'POST'])
+# def payment():
+#     if 'username' not in session:
+#         flash('You must be logged in to make a payment.', 'error')
+#         return redirect(url_for('signin'))
+
+#     if request.method == 'GET':
+#         # Booking data should be passed as query param or session
+#         booking_data = request.args.get('booking_data')
+#         if not booking_data:
+#             booking_data = session.get('pending_booking')
+#         else:
+#             session['pending_booking'] = booking_data
+
+#         # If booking_data is a string, parse it to dict
+#         booking_dict = {}
+#         if booking_data:
+#             try:
+#                 booking_dict = json.loads(booking_data)
+#             except Exception:
+#                 booking_dict = {}
+#         # return render_template('payment.html', booking_data=booking_dict)
+#         return jsonify({'status': 'success', 'redirect': url_for('bookingHistory')})
+
+
+#     # POST: process payment and booking
+#     card_number = request.form.get('card_number')
+#     expiry = request.form.get('expiry')
+#     cvv = request.form.get('cvv')
+#     booking_data = request.form.get('booking_data')
+#     if not (card_number and expiry and cvv and booking_data):
+#         flash('Missing payment or booking information.', 'error')
+#         return redirect(url_for('payment'))
+
+#     # Here you would integrate with a payment gateway. We'll mock success.
+#     # try:
+#     #     booking = booking_data if isinstance(booking_data, dict) else json.loads(booking_data)
+#     # except Exception:
+#     #     flash('Invalid booking data.', 'error')
+#     #     return redirect(url_for('dashboard'))
+
+#     # Add username and booking time
+#     # booking = booking_data if isinstance
+#     try:
+#         booking = json.loads(booking_data)
+#     except Exception:
+#         flash('Invalid booking data.', 'error')
+#         return redirect(url_for('payment'))
+
+#     booking=booking_data
+#     booking['username'] = session['username']
+#     booking['booking_time'] = datetime.utcnow()
+#     try:
+#         db.bookings.insert_one(booking)
+#         session.pop('pending_booking', None)
+#         flash('Payment successful! Booking confirmed.', 'success')
+#         return redirect(url_for('bookingHistory'))
+#     except Exception as e:
+#         flash('Booking failed: ' + str(e), 'error')
+#         return redirect(url_for('dashboard'))
     
 
 if __name__ == '__main__':

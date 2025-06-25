@@ -42,7 +42,8 @@
 <header>
     <div class="logo left">
       <div class="logo-icon"></div>
-      <div class="logo-text">TravelGo</div>
+      <div class="logo-text" onclick="window.location.href='/dashboard'">TravelGo</div>
+
     </div>
     <div class="right">
       <p onclick="window.location.href='/about'">About</p>
@@ -60,6 +61,10 @@
       </div>
     </div>
 </header>
+<marquee behavior="scroll" direction="left" style="color: #333; font-weight: bold; background: #eaf7ff; padding: 10px; font-family: sans-serif;">
+  
+ 🏨 Hotel Test: Mumbai | Delux or Standard |15-06-2025 to 30-7-2025|Guests:min-2(optional)
+</marquee>
 <div class="container-fluid mt-4 mb-4">
   <div class="row">
     <div class="col-md-8" style="opacity: 91%;">
@@ -290,45 +295,83 @@
     document.getElementById('submitBooking').disabled = selectedRooms.length === 0;
   }
 
-  document.getElementById('bookingForm').addEventListener('submit', async function (e) {
-    e.preventDefault();
-    const selected = document.querySelectorAll('.room.selected');
-    if (selected.length === 0) {
-      alert('Please select at least one room to book.');
-      return;
-    }
-    const selectedRooms = Array.from(selected).map(s => s.innerText);
-    const hotel = currentHotel;
-    try {
-      const response = await fetch('/submit-booking', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: hotel.name || 'Hotel',
-          date:new Date(),
+  // document.getElementById('bookingForm').addEventListener('submit', async function (e) {
+  //   e.preventDefault();
+  //   const selected = document.querySelectorAll('.room.selected');
+  //   if (selected.length === 0) {
+  //     alert('Please select at least one room to book.');
+  //     return;
+  //   }
+  //   const selectedRooms = Array.from(selected).map(s => s.innerText);
+  //   const hotel = currentHotel;
+  //   console.log(hotel);
+    
+  //   try {
+  //     const response = await fetch('/payment', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({
+  //         name: hotel.name || 'Hotel',
+  //         date:new Date(),
           
     
-          departure: hotel.available_to,
-          arrival: hotel.available_from,
-          price: hotel.price_per_night,
-          selected_seats_or_rooms: selectedRooms,
-          gender: 'N/A',
-          type: 'hotel'
-        })
-      });
-      const result = await response.json();
-      if (response.ok) {
-        alert(result.message || 'Booking successful!');
-        const bookingModal = bootstrap.Modal.getInstance(document.getElementById('bookingModal'));
-        bookingModal.hide();
-        loadUserBookings();
-      } else {
-        alert(result.error || 'Booking failed.');
-      }
-    } catch (error) {
-      alert('Error submitting booking: ' + error.message);
+  //         departure: hotel.available_to,
+  //         arrival: hotel.available_from,
+  //         price: hotel.price_per_night,
+  //         selected_seats_or_rooms: selectedRooms,
+  //         gender: 'N/A',
+  //         type: 'hotel'
+  //       })
+  //     });
+  //     const result = await response.json();
+  //     if (response.ok) {
+  //       alert(result.message || 'Booking successful!');
+  //       const bookingModal = bootstrap.Modal.getInstance(document.getElementById('bookingModal'));
+  //       bookingModal.hide();
+  //       loadUserBookings();
+  //     } else {
+  //       alert(result.error || 'Booking failed.');
+  //     }
+  //   } catch (error) {
+  //     alert('Error submitting booking: ' + error.message);
+  //   }
+  // });
+document.getElementById('bookingForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const selected = document.querySelectorAll('.room.selected');
+  if (selected.length === 0) {
+    alert('Please select at least one room to book.');
+    return;
+  }
+  const selectedRooms = Array.from(selected).map(s => s.innerText);
+  const hotel = currentHotel;
+
+  try {
+    const response = await fetch('/prepayment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: hotel.name || 'Hotel',
+        arrival: hotel.available_from,
+        departure: hotel.available_to,
+        price: hotel.price_per_night,
+        selected_seats_or_rooms: selectedRooms,
+        gender: 'N/A',
+        type: 'hotel'
+      })
+    });
+    const result = await response.json();
+    if (response.ok && result.redirect) {
+      window.location.href = result.redirect;
+    } else {
+      alert(result.error || 'Failed to proceed to payment.');
     }
-  });
+  } catch (error) {
+    alert('Error submitting booking: ' + error.message);
+  }
+});
+
+
 
   // Fetch and display user bookings
   async function loadUserBookings() {

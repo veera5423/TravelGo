@@ -42,7 +42,8 @@
 <header>
     <div class="logo left">
       <div class="logo-icon"></div>
-      <div class="logo-text">TravelGo</div>
+      <div class="logo-text" onclick="window.location.href='/dashboard'">TravelGo</div>
+
     </div>
     <div class="right">
       <p onclick="window.location.href='/about'">About</p>
@@ -60,6 +61,9 @@
       </div>
     </div>
 </header>
+<marquee behavior="scroll" direction="left" style="color: red; font-weight: bold; background: #c5c4c0; opacity: 70%; padding: 10px;">
+  ✈️ Test Flight: From Hyderabad to Delhi | Date: 2025-06-30 | Economy
+</marquee>
 <div class="container-fluid mt-4 mb-4">
   <div class="row">
     <div class="col-md-8" style="opacity: 91%;">
@@ -68,10 +72,17 @@
         <form id="flightSearchForm">
           <div class="row g-3">
             <div class="col-md-4">
-              <input type="text" name="from" class="form-control" placeholder="From" required>
+              <input type="text" name="from"  list="cityList" class="form-control" placeholder="From" required>
             </div>
+            <datalist id="cityList">
+              <option value="Hyderabad">
+              <option value="Bangalore">
+              <option value="Mumbai">
+              <option value="Chennai">
+              <option value="Delhi">
+            </datalist>
             <div class="col-md-4">
-              <input type="text" name="to" class="form-control" placeholder="To" required>
+              <input type="text"  list="cityList" name="to" class="form-control" placeholder="To" required>
             </div>
             <div class="col-md-2">
               <input type="date" name="date" class="form-control" required>
@@ -90,7 +101,9 @@
           </div>
         </form>
       </div>
-      <div class="mt-4" id="flightResults"></div>
+      
+      
+      <div class="mt-4" id="flightResults" style="display: flex; gap: 18px; flex-wrap: wrap;"></div>
     </div>
     <div class="col-md-4" style="opacity: 91%;">
       <div class="card shadow p-3" style="max-height: 85vh; overflow-y: auto;">
@@ -193,7 +206,7 @@
     e.preventDefault();
     const formData = new FormData(this);
     try {
-      const res = await fetch('/search-trips', {
+      const res = await fetch('/search-flights', {
         method: 'POST',
         body: formData
       });
@@ -205,18 +218,21 @@
         resultDiv.innerHTML = '<p class="text-danger">No flights found for selected criteria.</p>';
       } else {
         let rowsHTML = '';
+        const img=["https://images.unsplash.com/photo-1655747676101-49762c45306c?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OHx8ZmxpZ2h0cyUyMGFpcmluZGlhfGVufDB8fDB8fHww","https://images.unsplash.com/photo-1747579108450-00c8d14d0172?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGZsaWdodHMlMjBhaXJpbmRpYXxlbnwwfHwwfHx8MA%3D%3D","https://images.unsplash.com/photo-1571838217166-dad4e3a65554?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGZsaWdodHMlMjBhaXJpbmRpYXxlbnwwfHwwfHx8MA%3D%3D"]
         for (let i = 0; i < data.length; i++) {
           const trip = data[i];
-          rowsHTML += `
+          rowsHTML += `<div class="col-md-5">
             <div class="card mb-3 shadow-sm">
-              <img src="https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=600&q=80" class="card-img-top" alt="Flight">
+              <img src=${img[Math.floor(Math.random() * img.length)]} class="card-img-top" alt="Flight">
               <div class="card-body">
-                <h5>${trip.flight_name || trip.bus_name || 'Flight'}</h5>
+                <h5>${trip.flight_name || trip.airline || 'Flight'}</h5>
                 <p><strong>From:</strong> ${trip.from} | <strong>To:</strong> ${trip.to}</p>
                 <p><strong>Date:</strong> ${trip.date} <strong>Class:</strong> ${trip.class || '-'}</p>
+                <p><strong>ArrivalTime:</strong> ${trip.arrival_time} <strong>DepartureTime:</strong> ${trip.departure_time || '-'}</p>
                 <p><strong>Price:</strong> ₹${trip.price}</p>
                 <button class="btn active1 btn-sm book-now-btn" data-trip-index="${i}">Book Now</button>
               </div>
+            </div>
             </div>`;
         }
         resultDiv.innerHTML = rowsHTML;
@@ -307,7 +323,7 @@
     const selectedSeats = Array.from(selected).map(s => s.innerText);
     const trip = currentTrip;
     try {
-      const response = await fetch('/submit-booking', {
+      const response = await fetch('/prepayment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -323,18 +339,15 @@
           type: 'flight'
         })
       });
-      const result = await response.json();
-      if (response.ok) {
-        alert(result.message || 'Booking successful!');
-        const bookingModal = bootstrap.Modal.getInstance(document.getElementById('bookingModal'));
-        bookingModal.hide();
-        loadUserBookings();
-      } else {
-        alert(result.error || 'Booking failed.');
-      }
-    } catch (error) {
-      alert('Error submitting booking: ' + error.message);
+       const result = await response.json();
+    if (response.ok && result.redirect) {
+      window.location.href = result.redirect;
+    } else {
+      alert(result.error || 'Failed to proceed to payment.');
     }
+  } catch (error) {
+    alert('Error submitting booking: ' + error.message);
+  }
   });
 
   // Fetch and display user bookings

@@ -30,7 +30,8 @@
   <header>
     <div class="logo left">
       <div class="logo-icon"></div>
-      <div class="logo-text">TravelGo</div>
+      <div class="logo-text" onclick="window.location.href='/dashboard'">TravelGo</div>
+
     </div>
     <div class="right">
       <p onclick="window.location.href='/about'">About</p>
@@ -48,6 +49,10 @@
       </div>
     </div>
 </header>
+<marquee behavior="scroll" direction="left" style="color: red; font-weight: bold; background: #c5c4c0; opacity: 70%; padding: 10px;">
+  🚖 Test cab: From Hyderabad to Bangalore | Date: 2025-06-25 |TIME:8.00 |MAX-passenger-2
+</marquee>
+
 <!--  --------------------------------------------------------------------------------------------------------------->
 <div class="container-fluid mt-4">
   <div class="row">
@@ -82,7 +87,7 @@
       
           <div class="row g-3 mt-2">
             <!-- Cab Type -->
-            <div class="col-md-4">
+            <!-- <div class="col-md-4">
               <select name="cab_type" class="form-select" required>
                 <option value="">Cab Type</option>
                 <option value="Sedan">Sedan</option>
@@ -90,11 +95,12 @@
                 <option value="Mini">Mini</option>
                 <option value="Luxury">Luxury</option>
               </select>
-            </div>
+            </div> -->
       
             <!-- Passengers -->
             <div class="col-md-4">
-              <input type="number" name="passengers" class="form-control" placeholder="Passengers" min="1" max="6" required>
+              <input type="number" name="passengers" class="form-control" placeholder="Passengers" min="1" 
+              max="6" required>
             </div>
       
             <!-- Search Button + Loader -->
@@ -256,14 +262,19 @@
 
 
 // search
+
   let cabPrice = 0;
   let currentTrip = null;
+  
 
   document.getElementById('cabSearchForm').addEventListener('submit', async function(e) {
     e.preventDefault();
+    
     const formData = new FormData(this);
+   
+    
     try {
-      const res = await fetch('/search-trips', {
+      const res = await fetch('/search-cabs', {
         method: 'POST',
         body: formData
       });
@@ -313,15 +324,16 @@
   function openBookingModal(trip) {
     currentTrip = trip;
     cabPrice = trip.price;
+    
     document.getElementById('tripInfo').innerHTML = `
       <p><strong>${trip.cab_type || trip.bus_name || 'Cab'}</strong></p>
       <p>From <strong>${trip.from}</strong> to <strong>${trip.to}</strong></p>
       <p><strong>Date:</strong> ${trip.date} <strong>Time:</strong> ${trip.time || trip.departure || '-'}</p>
       <p><strong>Price:</strong> ₹${trip.price}</p>
-      <p><strong>Passengers:</strong> ${trip.passengers || 1}</p>
+      <p><strong>Passengers:</strong> ${trip.passengerscount || 1}</p>
     `;
-    document.getElementById('passengerCountDisplay').textContent = trip.passengers || 1;
-    document.getElementById('totalPrice').textContent = (trip.passengers || 1) * cabPrice;
+    document.getElementById('passengerCountDisplay').textContent = trip.passengerscount || 1;
+    document.getElementById('totalPrice').textContent = (trip.passengerscount || 1) * cabPrice;
     document.getElementById('submitBooking').disabled = false;
     const bookingModal = new bootstrap.Modal(document.getElementById('bookingModal'));
     bookingModal.show();
@@ -336,7 +348,7 @@
     }
     const trip = currentTrip;
     try {
-      const response = await fetch('/submit-booking', {
+      const response = await fetch('/prepayment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -352,18 +364,16 @@
           type: 'cab'
         })
       });
-      const result = await response.json();
-      if (response.ok) {
-        alert(result.message || 'Booking successful!');
-        const bookingModal = bootstrap.Modal.getInstance(document.getElementById('bookingModal'));
-        bookingModal.hide();
-        loadUserBookings();
-      } else {
-        alert(result.error || 'Booking failed.');
-      }
-    } catch (error) {
-      alert('Error submitting booking: ' + error.message);
+     const result = await response.json();
+    if (response.ok && result.redirect) {
+      window.location.href = result.redirect;
+    } else {
+      alert(result.error || 'Failed to proceed to payment.');
     }
+  } catch (error) {
+    alert('Error submitting booking: ' + error.message);
+  }
+    
   });
 
   // Fetch and display user bookings
