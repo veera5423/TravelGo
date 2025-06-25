@@ -8,12 +8,14 @@ Flask==3.0.3
 Flask-SQLAlchemy==3.1.1
 fpdf==1.7.2
 greenlet==3.1.1
+gunicorn==23.0.0
 idna==3.10
 itsdangerous==2.2.0
 Jinja2==3.1.4
 jsons==1.6.3
 MarkupSafe==3.0.2
 numpy==2.1.2
+packaging==25.0
 pandas==2.2.3
 pymongo==4.13.2
 pynput==1.7.7
