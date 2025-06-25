@@ -98,7 +98,7 @@
       {% set total_price = booking_data.price * total_passengers %}
       <div class="amount-box">
         <div><strong>Items Selected:</strong> {{ selection | join(', ') }}</div>
-        <div><strong>Total Amount:</strong> ₹{{ booking_data.price }} × {{ selection | join(', ')  }} = ₹{{ total_price }}</div>
+        <div><strong>Total Amount:</strong> ₹{{ booking_data.price }} × {{ total_passengers }} = ₹{{ total_price }}</div>
       </div>
     {% endif %}
 
