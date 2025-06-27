@@ -47,8 +47,11 @@ def dashboard():
     return render_template('dashboard.html', reviews=reviews, user=user)
         
 #Forgot password
-@app.route("/forgotpassword")    
+@app.route("/forgotpassword",methods=['GET','POST'])    
 def forgotpassword():
+    if request.method=="POST":
+        flash("Reset Link Sent Successfully","sucess")
+        return render_template("login.html")
     return render_template("forgotpassword.html")    
         
 
